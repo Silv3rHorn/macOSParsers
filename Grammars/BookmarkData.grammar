@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ufwb version="1.14">
+    <grammar name="Bookmark Data" start="id:738" author="Yu Kai Tan" email="yukai@vista.aero">
+        <description>Grammar for bookmark data</description>
+        <structure name="Header" id="738" length="0" encoding="ISO_8859-1:1987" endian="little" signed="no">
+            <string name="Signature" mustmatch="yes" id="739" fillcolor="FF7D78" type="fixed-length" length="4">
+                <description>Can be book (the new style) or alis (used in original alias record of Mac OS)</description>
+                <fixedvalues>
+                    <fixedvalue name="book" value="book"/>
+                    <fixedvalue name="alias" value="alis"/>
+                </fixedvalues>
+            </string>
+            <number name="TotalLength" id="740" fillcolor="FFD478" type="integer" length="32" lengthunit="bit">
+                <description>Total length of the BookmarkData structure (including the header)</description>
+            </number>
+            <number name="Version" id="741" fillcolor="FEFC78" type="integer" length="4" endian="big"/>
+            <offset name="Data" id="743" fillcolor="73FDFF" length="4" references="id:742" follownullreference="yes" display="decimal">
+                <description>Offset to Data payload from beginning of BookmarkData structure (always 48 currently)</description>
+            </offset>
+        </structure>
+        <structure name="Data" id="742" encoding="ISO_8859-1:1987" endian="little" signed="no">
+            <scriptelement name="BaseOffset" id="769">
+                <script name="unnamed">
+                    <source language="Python">currentPos = currentMapper.getCurrentOffset()
+posValue = NumberValue()
+posValue.setUnsigned(currentPos)
+
+currentElement = currentMapper.getCurrentElement()
+results = currentMapper.getCurrentResults()
+results.addElement(currentElement, 0, 0, posValue)</source>
+                </script>
+            </scriptelement>
+            <offset name="FirstTOC" id="746" fillcolor="73FDFF" length="4" references="id:745" relative-to="id:742" follownullreference="yes" display="decimal">
+                <description>Offset to first TOC, measured from start of data payload</description>
+            </offset>
+        </structure>
+        <structure name="TOC" id="745" encoding="ISO_8859-1:1987" endian="little" signed="no">
+            <structure name="HeaderTOC" id="748">
+                <number name="LengthData" id="749" fillcolor="FFD478" type="integer" length="32" lengthunit="bit">
+                    <description>Length of DataTOC segment which is after header</description>
+                </number>
+                <number name="RecordType" id="750" fillcolor="8DF900" type="integer" length="16" lengthunit="bit" signed="yes">
+                    <description>Record type of TOC</description>
+                </number>
+                <number name="Flags" mustmatch="yes" id="751" fillcolor="75D5FF" type="integer" length="16" lengthunit="bit" display="hex">
+                    <fixedvalues>
+                        <fixedvalue name="Unused" value="0xFFFF"/>
+                    </fixedvalues>
+                </number>
+            </structure>
+            <structure name="DataTOC" id="753" length="0">
+                <number name="Level" id="754" fillcolor="4E8F00" type="integer" length="32" lengthunit="bit"/>
+                <offset name="TOC" id="755" fillcolor="73FDFF" length="4" references="id:745" additional="BaseOffset" follownullreference="no" display="decimal">
+                    <description>Offset of next TOC record, from beginning of BookmarkData data section</description>
+                </offset>
+                <number name="RecordCount" id="756" fillcolor="7980FF" type="integer" length="32" lengthunit="bit">
+                    <description>Number of records in this TOC</description>
+                </number>
+            </structure>
+            <structure name="DataRecordTOC" id="758" repeatmax="RecordCount">
+                <number name="RecordType" id="759" fillcolor="8DF900" type="integer" length="16" lengthunit="bit">
+                    <fixedvalues>
+                        <fixedvalue name="pathComponents" value="4100"/>
+                        <fixedvalue name="fileIDs" value="4101"/>
+                        <fixedvalue name="resourceProps" value="4112"/>
+                        <fixedvalue name="creationDate" value="4160"/>
+                        <fixedvalue name="volInfoDepths" value="8192"/>
+                        <fixedvalue name="volPath" value="8194"/>
+                        <fixedvalue name="volURL" value="8197"/>
+                        <fixedvalue name="volName" value="8208"/>
+                        <fixedvalue name="volMountURL" value="8272"/>
+                    </fixedvalues>
+                </number>
+                <number name="Flags" id="760" fillcolor="D783FF" type="integer" length="16" lengthunit="bit" display="hex"/>
+                <offset name="StandardDataRecord" id="762" fillcolor="73FDFF" length="8" references="id:761" additional="BaseOffset" follownullreference="yes" display="decimal">
+                    <description>Offset of record data, measured from beginning of BookmarkData data section</description>
+                </offset>
+            </structure>
+        </structure>
+        <structure name="StandardDataRecord" id="761" encoding="ISO_8859-1:1987" endian="little" signed="no">
+            <number name="LengthData" id="765" fillcolor="FFD478" type="integer" length="32" lengthunit="bit"/>
+            <number name="DataType" id="766" fillcolor="8DF900" type="integer" length="32" lengthunit="bit">
+                <fixedvalues>
+                    <fixedvalue name="string" value="257"/>
+                    <fixedvalue name="CFURL" value="2305"/>
+                </fixedvalues>
+            </number>
+            <string name="RecordData" id="767" fillcolor="919191" type="fixed-length" length="LengthData"/>
+        </structure>
+    </grammar>
+</ufwb>
