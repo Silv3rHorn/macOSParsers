@@ -3,7 +3,7 @@ import datetime
 import struct
 
 __author__ = 'yk'
-__version__ = '.20160604'
+__version__ = '.20160611'
 __reference__ = 'http://cpansearch.perl.org/src/WIML/Mac-Alias-Parse-0.20/Parse.pm'
 
 
@@ -104,14 +104,12 @@ def parse(raw_data):
         if record.type == -1:  # end of list
             break
 
-    result = _interpret(alias_data)
+    _interpret(alias_data)
     # _debug(alias_data, result)
     return result
 
 
 def _interpret(alias_data):
-    result = {}
-
     if alias_data.header.kind_item == 0:
         result['kind'] = "file"
     elif alias_data.header.kind_item == 1:
@@ -163,12 +161,8 @@ def _interpret(alias_data):
             result[RecordTypes[17]] = datetime.datetime.utcfromtimestamp(
                 struct.unpack('>I', record.data[2:-2])[0] - HFS_to_Epoch).strftime('%d %b %Y %H:%M:%S')
 
-    for key, value in result.items():
-        print("{}".format(key + ": " + value))
-    return result
 
-
-def _debug(alias_data, result):
+def _debug(alias_data):
     print("{}".format("===== Header ====="))
     print("Length       : {}".format(alias_data.header.length))
     print("Version      : {}".format(alias_data.header.version))
@@ -193,10 +187,14 @@ def _debug(alias_data, result):
     print("{}".format("================"))
 
 
+result = {}
+
 parser = argparse.ArgumentParser(description="Parse alias data")
 parser.add_argument('raw', metavar='alias', type=str, nargs=1, help="specify path to file that contains raw alias data")
-
 args = parser.parse_args()
+
 with open(args.raw[0], 'rb') as raw_alias:
     file_content = raw_alias.read()
     parse(file_content)
+for key, value in result.items():
+    print("{}".format(key + ": " + value))

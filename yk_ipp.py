@@ -3,7 +3,7 @@ import datetime
 import struct
 
 __author__ = 'yk'
-__version__ = '.20160514'
+__version__ = '.20160611'
 __reference__ = "https://www.ma.rhul.ac.uk/static/techrep/2015/RHUL-MA-2015-8.pdf (Pg 68-69)"
 
 
@@ -36,7 +36,6 @@ def parse(raw_data):
         else:
             pass
 
-    print('\r\n'.join(result))
     return result
 
 
@@ -112,10 +111,12 @@ def get_time(epoch):
 
 
 result = []
+
 parser = argparse.ArgumentParser(description="Parse IPP Control file")
 parser.add_argument('raw', metavar='ipp', type=str, nargs=1, help="specify path to IPP control file")
-
 args = parser.parse_args()
+
 with open(args.raw[0], 'rb') as raw_alias:
     file_content = raw_alias.read()
     parse(file_content)
+print('\r\n'.join(result))
