@@ -2,7 +2,7 @@ import argparse
 import struct
 
 __author__ = 'yk'
-__version__ = 'v.20160514'
+__version__ = 'v.20160611'
 __reference__ = 'http://michaellynn.github.io/2015/10/24/apples-bookmarkdata-exposed/'
 
 
@@ -45,7 +45,6 @@ class BookmarkData:
 
 
 def parse(raw_data):
-    result = {}
     bm_data = BookmarkData()
 
     # header
@@ -94,19 +93,17 @@ def parse(raw_data):
             bm_data.data.records[-1].data = struct.unpack(str(bm_data.data.records[-1].length) + 's',
                                                           raw_data[raw_record[2] + 8:raw_record[2] + 8 + bm_data.data.
                                                           records[-1].length])[0]
-            result = interpret(bm_data.data.ToCs[-1].records[-1].type, bm_data.data.records[-1], raw_data, result)
+            interpret(bm_data.data.ToCs[-1].records[-1].type, bm_data.data.records[-1], raw_data)
 
         if bm_data.data.ToCs[-1].data.offset_next_toc == 0:
             has_next_toc = False
         else:
             index_start = bm_data.data.ToCs[-1].data.offset_next_toc
 
-    for key, value in result.items():
-        print("{}".format(key + ": " + value))
     return result
 
 
-def interpret(toc_record_type, record, raw_data, result):
+def interpret(toc_record_type, record, raw_data):
 
     if toc_record_type == 4100:  # pathComponents
         result['path'] = ''
@@ -121,16 +118,19 @@ def interpret(toc_record_type, record, raw_data, result):
         # print('filePath     : {}'.format(result['path']))
 
     elif toc_record_type == 4101:  # fileIDs
-        result['inodes'] = ''
+        result['inodePath'] = ''
         offsets = get_offsets(record)
         for offset in offsets:
             inodes_component = DataRecord()
             inodes_component.length = struct.unpack('<I', raw_data[offset:offset + 4])[0]
-            if inodes_component.length > 0:
-                inodes_component.data = struct.unpack('Q', raw_data[offset + 8:offset + 8 + inodes_component.length])[0]
-                result['inodes'] += '/' + str(inodes_component.data)
+            if inodes_component.length == 8:
+                inodes_component.data = struct.unpack('Q', raw_data[offset + 8:offset + 8 + 8])[0]
+                result['inodePath'] += '/' + str(inodes_component.data)
+            elif inodes_component.length == 4:
+                inodes_component.data = struct.unpack('I', raw_data[offset + 8:offset + 8 + 4])[0]
+                result['inodePath'] += '/' + str(inodes_component.data)
             else:
-                result['inodes'] += '/?'
+                result['inodePath'] += '/?'
         # print('inodePath    : {}'.format(result['inodes']))
 
     elif toc_record_type == 4112:  # resourceProps
@@ -194,11 +194,15 @@ def get_offsets(record):
     return offsets
 
 
+result = {}
+
 parser = argparse.ArgumentParser(description="Parse bookmark data")
 parser.add_argument('raw', metavar='alias', type=str, nargs=1, help="specify path to file that contains raw bookmark "
                                                                     "data")
-
 args = parser.parse_args()
+
 with open(args.raw[0], 'rb') as raw_bm:
     file_content = raw_bm.read()
     parse(file_content)
+for key, value in result.items():
+    print("{}".format(key + ": " + value))
