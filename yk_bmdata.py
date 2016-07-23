@@ -79,6 +79,7 @@ def parse(raw_data):
         bm_data.data.ToCs[-1].data.record_count = data[2]
 
         index_start += 20
+        toc = {}
         for _ in range(bm_data.data.ToCs[-1].data.record_count):
             bm_data.data.ToCs[-1].records.append(ToCRecord())
             raw_record = struct.unpack('HHI', raw_data[index_start:index_start + 8])
@@ -93,20 +94,21 @@ def parse(raw_data):
             bm_data.data.records[-1].data = struct.unpack(str(bm_data.data.records[-1].length) + 's',
                                                           raw_data[raw_record[2] + 8:raw_record[2] + 8 + bm_data.data.
                                                           records[-1].length])[0]
-            interpret(bm_data.data.ToCs[-1].records[-1].type, bm_data.data.records[-1], raw_data)
+            interpret(toc, bm_data.data, raw_data)
 
+        result.append(toc)
         if bm_data.data.ToCs[-1].data.offset_next_toc == 0:
             has_next_toc = False
         else:
             index_start = bm_data.data.ToCs[-1].data.offset_next_toc
 
-    return result
 
-
-def interpret(toc_record_type, record, raw_data):
+def interpret(toc, data, raw_data):
+    toc_record_type = data.ToCs[-1].records[-1].type
+    record = data.records[-1]
 
     if toc_record_type == 4100:  # pathComponents
-        result['path'] = ''
+        toc['path'] = ''
         offsets = get_offsets(record)
         for offset in offsets:
             path_component = DataRecord()
@@ -114,24 +116,24 @@ def interpret(toc_record_type, record, raw_data):
             path_component.type = struct.unpack('<I', raw_data[offset + 4:offset + 8])[0]
             path_component.data = struct.unpack(str(path_component.length) + 's',
                                                 raw_data[offset + 8:offset + 8 + path_component.length])[0]
-            result['path'] += '/' + path_component.data.decode('utf-8')
-        # print('filePath     : {}'.format(result['path']))
+            toc['path'] += '/' + path_component.data.decode('utf-8')
+        # print('filePath     : {}'.format(toc['path']))
 
     elif toc_record_type == 4101:  # fileIDs
-        result['inodePath'] = ''
+        toc['inodePath'] = ''
         offsets = get_offsets(record)
         for offset in offsets:
             inodes_component = DataRecord()
             inodes_component.length = struct.unpack('<I', raw_data[offset:offset + 4])[0]
             if inodes_component.length == 8:
                 inodes_component.data = struct.unpack('Q', raw_data[offset + 8:offset + 8 + 8])[0]
-                result['inodePath'] += '/' + str(inodes_component.data)
+                toc['inodePath'] += '/' + str(inodes_component.data)
             elif inodes_component.length == 4:
                 inodes_component.data = struct.unpack('I', raw_data[offset + 8:offset + 8 + 4])[0]
-                result['inodePath'] += '/' + str(inodes_component.data)
+                toc['inodePath'] += '/' + str(inodes_component.data)
             else:
-                result['inodePath'] += '/?'
-        # print('inodePath    : {}'.format(result['inodes']))
+                toc['inodePath'] += '/?'
+        # print('inodePath    : {}'.format(toc['inodePath']))
 
     elif toc_record_type == 4112:  # resourceProps
         # print('resourceProps: {}'.format('?'))
@@ -146,38 +148,36 @@ def interpret(toc_record_type, record, raw_data):
         pass
 
     elif toc_record_type == 8194:  # volPath
-        result['volPath'] = record.data.decode('utf-8')
-        # print('volPath      : {}'.format(result['volPath']))
+        toc['volPath'] = record.data.decode('utf-8')
+        # print('volPath      : {}'.format(toc['volPath']))
 
     elif toc_record_type == 8197:  # volURL
-        result['volURL'] = record.data.decode('utf-8')
-        # print('volURL       : {}'.format(result['volURL']))
+        toc['volURL'] = record.data.decode('utf-8')
+        # print('volURL       : {}'.format(toc['volURL']))
 
     elif toc_record_type == 8208:  # volName
-        result['volName'] = record.data.decode('utf-8')
-        # print('volName      : {}'.format(result['volName']))
+        toc['volName'] = record.data.decode('utf-8')
+        # print('volName      : {}'.format(toc['volName']))
 
     elif toc_record_type == 8209:  # volUUID
-        result['volUUID'] = record.data.decode('utf-8')
-        # print('volUUID      : {}'.format(result['volUUID']))
+        toc['volUUID'] = record.data.decode('utf-8')
+        # print('volUUID      : {}'.format(toc['volUUID']))
 
     elif toc_record_type == 8272:  # volMountURL
         # print('volMountURL  : {}'.format('?'))
         pass
 
     elif toc_record_type == 49169:  # user
-        result['user'] = record.data.decode('utf-8')
-        # print('user         : {}'.format(result['user']))
+        toc['user'] = record.data.decode('utf-8')
+        # print('user         : {}'.format(toc['user']))
 
     elif toc_record_type == 61568:  # sandboxInfo
-        result['sandbox'] = record.data.decode('utf-8')
-        # print('sandboxInfo  : {}'.format(result['sandbox']))
+        toc['sandbox'] = record.data.decode('utf-8')
+        # print('sandboxInfo  : {}'.format(toc['sandbox']))
 
     else:
         # print('record type {} is currently unknown'.format(toc_record_type))
         pass
-
-    return result
 
 
 def get_offsets(record):
@@ -194,7 +194,7 @@ def get_offsets(record):
     return offsets
 
 
-result = {}
+result = []
 
 parser = argparse.ArgumentParser(description="Parse bookmark data")
 parser.add_argument('raw', metavar='alias', type=str, nargs=1, help="specify path to file that contains raw bookmark "
@@ -204,5 +204,7 @@ args = parser.parse_args()
 with open(args.raw[0], 'rb') as raw_bm:
     file_content = raw_bm.read()
     parse(file_content)
-for key, value in result.items():
-    print("{}".format(key + ": " + value))
+for table in result:
+    print('=' * 10 + " TOC " + str(result.index(table)) + ' ' + '=' * 10)
+    for key, value in table.items():
+        print("{}".format(key + ": " + value))
