@@ -4,7 +4,8 @@ import struct
 
 __author__ = 'yk'
 __version__ = '.20160611'
-__reference__ = "https://www.ma.rhul.ac.uk/static/techrep/2015/RHUL-MA-2015-8.pdf (Pg 68-69)"
+__reference1__ = "https://www.ma.rhul.ac.uk/static/techrep/2015/RHUL-MA-2015-8.pdf (Pg 68-69)"
+__reference2__ = "https://www.iana.org/assignments/ipp-registrations/ipp-registrations.txt"
 
 
 def parse(raw_data):
@@ -16,8 +17,8 @@ def parse(raw_data):
     raw_data = raw_data[8:]
 
     while True:
-        if b'\x01' <= raw_data[0:1] <= b'\x07':
-            if raw_data[0:1] == b'\x03':
+        if b'\x01' <= raw_data[0:1] <= b'\x07':  # valid operation attributes
+            if raw_data[0:1] == b'\x03':  # end-of-attributes tag
                 break
             else:
                 raw_data = raw_data[1:]
