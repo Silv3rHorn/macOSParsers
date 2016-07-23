@@ -1,17 +1,17 @@
 import argparse
 import datetime
+import pprint
 import struct
 
 __author__ = 'yk'
-__version__ = '.20160611'
+__version__ = '.20160723'
 __reference__ = 'http://cpansearch.perl.org/src/WIML/Mac-Alias-Parse-0.20/Parse.pm'
 
 
-RecordTypes = ["folderName", "inodePath", "filePath", "appleshare_zoneName",
+RecordTypes = ["folderName", "parentInodePath", "filePath", "appleshare_zoneName",
                "appleShare_serverName", "appleShare_username", "driverName", "", "", "network_mountInfo",
-               "appleRemoteAccess_dialupInfo", "", "", "", "unicode_fileName", "unicode_volName", "utc_volCreationDate",
-               "utc_fileCreationDate", "posix_filePath", "posix_mountPoint",
-               "aliasOfDMG", "posix_userHome"]
+               "appleRemoteAccess_dialupInfo", "", "", "", "fileName_utf16", "volName_utf16", "volCreationDate_utc",
+               "fileCreationDate_utc", "filePath_posix", "mountPoint_posix", "aliasOfDMG", "userHome_posix"]
 HFS_to_Epoch = 2082844800
 
 
@@ -53,6 +53,7 @@ class AliasData:
 
 
 def parse(raw_data):
+    result.clear()
     alias_data = AliasData()
 
     # header
@@ -105,20 +106,22 @@ def parse(raw_data):
             break
 
     _interpret(alias_data)
-    # _debug(alias_data, result)
+    # _debug(alias_data)
     return result
 
 
 def _interpret(alias_data):
     if alias_data.header.kind_item == 0:
-        result['kind'] = "file"
+        result['fileKind'] = "file"
     elif alias_data.header.kind_item == 1:
-        result['kind'] = "folder"
+        result['fileKind'] = "folder"
 
-    result['volName'] = alias_data.volume.name.decode('utf-8')
+    result['fileInode'] = alias_data.item.inode
+    result['parentInode'] = alias_data.item.inode_pfolder
+    result['volName'] = alias_data.volume.name
     result['volCreationDate'] = datetime.datetime.utcfromtimestamp(alias_data.volume.date_creation -
                                                                    HFS_to_Epoch).strftime('%d %b %Y %H:%M:%S')
-    result['fileSystemType'] = alias_data.volume.type_fs.decode('utf-8')
+    result['volFileSystem'] = alias_data.volume.type_fs
 
     if alias_data.volume.type_vol == 0:
         result['volType'] = "fixed HD"
@@ -133,7 +136,7 @@ def _interpret(alias_data):
     elif alias_data.volume.type_vol == 5:
         result['volType'] = "other ejectable media"
 
-    result['filename'] = alias_data.item.name.decode('utf-8')
+    result['fileName'] = alias_data.item.name
     result['fileCreationDate'] = datetime.datetime.utcfromtimestamp(alias_data.item.date_creation -
                                                                     HFS_to_Epoch).strftime('%d %b %Y %H:%M:%S')
 
@@ -149,11 +152,11 @@ def _interpret(alias_data):
             for inode in reversed(inode_components):
                 result[RecordTypes[1]] += str(inode) + '/'
         if record.type == 2:
-            result[RecordTypes[2]] = record.data.decode('utf-8').replace(':', '/')
+            result[RecordTypes[2]] = record.data.replace(b':', b'/')
         elif record.type == 14:
-            result[RecordTypes[14]] = record.data.decode('utf-8').replace('\f', '').replace('\v', '')
+            result[RecordTypes[14]] = (record.data[1:] + b'\x00').decode('utf-16')
         elif record.type == 15:
-            result[RecordTypes[15]] = record.data.decode('utf-8').replace('\f', '').replace('\v', '')
+            result[RecordTypes[15]] = (record.data[1:] + b'\x00').decode('utf-16')
         elif record.type == 16:
             result[RecordTypes[16]] = datetime.datetime.utcfromtimestamp(
                 struct.unpack('>I', record.data[2:-2])[0] - HFS_to_Epoch).strftime('%d %b %Y %H:%M:%S')
@@ -196,5 +199,4 @@ args = parser.parse_args()
 with open(args.raw[0], 'rb') as raw_alias:
     file_content = raw_alias.read()
     parse(file_content)
-for key, value in result.items():
-    print("{}".format(key + ": " + value))
+pprint.pprint(result)

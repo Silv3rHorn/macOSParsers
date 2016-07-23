@@ -1,13 +1,14 @@
 import argparse
 import datetime
+import pprint
 import struct
 
 __author__ = 'yk'
-__version__ = '.20160611'
+__version__ = '.20160723'
 
 
-RecordTypes = ["", "inodePath", "", "", "", "", "", "", "", "", "", "", "", "", "unicode_fileName", "unicode_volName",
-               "", "", "filePath", "mountPoint"]
+RecordTypes = ["", "parentInodePath", "", "", "", "", "", "", "", "", "", "", "", "", "fileName_utf16", "volName_utf16",
+               "", "", "filePath", "volMountPoint"]
 HFS_to_Epoch = 2082844800
 
 
@@ -37,6 +38,7 @@ class AliasData:
 
 
 def parse(raw_data):
+    result.clear()
     alias_data = AliasData()
 
     # header
@@ -74,22 +76,22 @@ def parse(raw_data):
             break
 
     _interpret(alias_data)
-    # _debug(alias_data, result)
+    # _debug(alias_data)
 
     return result
 
 
 def _interpret(alias_data):
     if alias_data.header.kind_item == 0:
-        result['kind'] = "file"
+        result['fileKind'] = "file"
     elif alias_data.header.kind_item == 1:
-        result['kind'] = "folder"
+        result['fileKind'] = "folder"
 
     result['volCreationDate'] = datetime.datetime.utcfromtimestamp(alias_data.volume.date_creation -
                                                                    HFS_to_Epoch).strftime('%d %b %Y %H:%M:%S')
-    result['inodeParent'] = str(alias_data.item.inode_pfolder)
-    result['inode'] = str(alias_data.item.inode)
-    result['fileSystemType'] = alias_data.volume.type_fs.decode('utf-8')
+    result['parentInode'] = alias_data.item.inode_pfolder
+    result['fileInode'] = alias_data.item.inode
+    result['volFileSystem'] = alias_data.volume.type_fs
     result['fileCreationDate'] = datetime.datetime.utcfromtimestamp(alias_data.item.date_creation -
                                                                     HFS_to_Epoch).strftime('%d %b %Y %H:%M:%S')
 
@@ -105,13 +107,13 @@ def _interpret(alias_data):
             for inode in reversed(inode_components):
                 result[RecordTypes[1]] += str(inode) + '/'
         elif record.type == 14:
-            result[RecordTypes[14]] = record.data.decode('utf-8').replace('\f', '').replace('\v', '')
+            result[RecordTypes[14]] = (record.data[1:] + b'\x00').decode('utf-16')
         elif record.type == 15:
-            result[RecordTypes[15]] = record.data.decode('utf-8').replace('\f', '').replace('\v', '')
+            result[RecordTypes[15]] = (record.data[1:] + b'\x00').decode('utf-16')
         elif record.type == 18:
-            result[RecordTypes[18]] = record.data.decode('utf-8')
+            result[RecordTypes[18]] = record.data
         elif record.type == 19:
-            result[RecordTypes[19]] = record.data.decode('utf-8')
+            result[RecordTypes[19]] = record.data
 
 
 def _debug(alias_data):
@@ -140,5 +142,4 @@ args = parser.parse_args()
 with open(args.raw[0], 'rb') as raw_alias:
     file_content = raw_alias.read()
     parse(file_content)
-for key, value in result.items():
-    print("{}".format(key + ": " + value))
+pprint.pprint(result)
